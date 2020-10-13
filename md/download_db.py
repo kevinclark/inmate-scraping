@@ -6,7 +6,7 @@ import string
 
 DIR = 'data'
 
-for letter in string.ascii_lowercase[15:]:
+for letter in string.ascii_lowercase:
     with open(os.path.join(DIR, '%s.tsv' % letter), 'w') as tsv:
         headings = ['db_id', 'doc_id', 'sid', 'last', 'first', 'middle', 'dob', 'facility_name', 'address', 'phone']
         tsv.write('\t'.join(headings))
