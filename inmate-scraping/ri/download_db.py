@@ -6,7 +6,11 @@ from bs4 import BeautifulSoup
 import requests
 import maya
 
-from names import TWO_LETTER_PREFIXES
+
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from common.names import TWO_LETTER_PREFIXES
 
 Inmate = namedtuple('Inmate', ['id', 'first_name', 'last_name', 'middle_name'])
 
