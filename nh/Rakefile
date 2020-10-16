@@ -1,0 +1,26 @@
+require 'csv'
+require './download'
+
+desc 'Populate inmate locator page cache'
+task :download do
+  Download.retrieve_all
+end
+
+desc 'Print TSV'
+task :tsv do
+  inmates = Download.list_all
+
+  s = CSV.generate(col_sep: "\t") do |csv|
+    column_names = inmates.first.keys
+    csv << column_names
+    inmates.each do |x|
+      csv << x.values
+    end
+  end
+
+  f = File.new('data/inmates.csv', 'w+')
+  f << s
+  f.close
+
+  puts %x|sed -E 's/("([^"]*)")?,/\2\t/g' data/inmates.csv|
+end
