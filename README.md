@@ -1,8 +1,3 @@
-# Scraping Inmate Databases
+A repo aggregating scripts that scrape prison databases.
 
-To get started:
-
-```
-pip install -r requirements.txt
-```
-
+Split up by language so it's easier to see relevant example code.
