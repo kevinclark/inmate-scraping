@@ -2,24 +2,21 @@ import sys
 import os
 import json
 from collections import namedtuple
+
 from bs4 import BeautifulSoup
-
-# soup.find_all(class_='detailLeftBaseContainer')[0].find_all('tr')[-1].find_all('td')[1]
-
-Offender = namedtuple('Offender', ['id', 'docId', 'first', 'last', 'age', 'gender', 'groupKind', 'fromDB'])
-{'offenderID': 32104, 'docID': '20180912003', 'firstName': 'Trenton        ', 'lastName': 'Josephson           ', 'age': 29, 'gender': 'Male', 'groupKind': 'Inmate', 'fromDB': 'WCIS'}
+import mechanicalsoup
+import requests
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-
 from common.names import TWO_LETTER_PREFIXES
-
-import mechanicalsoup
-
-import requests
 
 FORM_URL = 'http://wdoc-loc.wyo.gov/'
 DATA_URL = 'http://wdoc-loc.wyo.gov/Home/getInmateList'
 DETAIL_URL = 'http://wdoc-loc.wyo.gov/Home/Detail/?id=32547&dbType=WCIS'
+
+Offender = namedtuple('Offender', ['id', 'docId', 'first', 'last',
+                                   'age', 'gender', 'groupKind', 'fromDB'])
+
 
 def detail_url(offender_id, db):
     return 'http://wdoc-loc.wyo.gov/Home/Detail/?id=%s&dbType=%s' % (offender_id, db)

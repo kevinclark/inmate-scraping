@@ -1,7 +1,6 @@
 import string
 import mechanicalsoup
 import requests
-from bs4 import BeautifulSoup
 import urllib
 import time
 from collections import namedtuple
@@ -9,91 +8,85 @@ from collections import namedtuple
 Inmate = namedtuple('Inmate', ['dcnum', 'name', 'race', 'facility'])
 
 FORM_URL = 'https://apps.ark.org/inmate_info/index.php'
+LIST_URL = 'https://apps.ark.org/inmate_info/search.php'
 DETAILS_PATH = 'https://apps.ark.org/inmate_info/'
 
 
 
-def details_and_next_page_for(page):
+def inmates_for(page):
     # Search links
     details = [a for a in page.find_all('a') if a.attrs['href'].startswith('search.php')]
+
     if details[0].text.startswith('Matches'):
-        next_page = details[0].attrs['href']
-        return details[1:], next_page
-    else:
-        return details, None
+        if details[1].text.startswith('Matches'):
+            details = details[2:]
+        else:
+            details = details[1:]
+
+    if len(details) == 1 and details[0].text == ',  ':
+        return []
+
+    inmates = []
+
+    for detail in details:
+        parts = detail.parent.parent.text.strip().split('\n')
+        try:
+            name = parts[2]
+            dcnum = parts[3]
+            race = parts[4]
+            facility = parts[7]
+        except:
+            import pdb; pdb.set_trace()
+
+        inmates.append(Inmate(dcnum, name, race, facility))
+
+    return inmates
 
 def detail_url_for(dcnum):
     return 'https://apps.ark.org/inmate_info/search.php?dcnum=%s' % dcnum
 
 
-def enumerate_offender_dcnum():
+def enumerate_inmates(prefix):
     browser = mechanicalsoup.StatefulBrowser()
 
-    for prefix in string.ascii_lowercase:
-        browser.open(FORM_URL)
-        browser.select_form('form')
-        browser['lastname'] = prefix
-        browser['disclaimer'] = 1
-        browser['photo'] = 'nophoto'
-        browser.submit_selected()
+    browser.open(FORM_URL)
+    browser.select_form('form')
+    browser['lastname'] = prefix
+    browser['disclaimer'] = 1
+    browser['photo'] = 'nophoto'
 
-        page = browser.get_current_page()
+    page = browser.get_current_page()
+    token = page.select('input[name=token]')[0].attrs['value']
 
-        details, next_page = details_and_next_page_for(page)
+    browser.submit_selected()
 
-        for detail in details:
-            yield urllib.parse.parse_qs(detail.attrs['href'][11:])['dcnum'][0]
+    page = browser.get_current_page()
 
-        while next_page:
-            url = DETAILS_PATH + next_page
-            print('<- %s' % url)
-            browser.open(url)
-            page = browser.get_current_page()
-            details, next_page = details_and_next_page_for(page)
+    inmates = inmates_for(browser.get_current_page())
+    run = 2 # The submission gets us run 1
 
-            for detail in details:
-                yield urllib.parse.parse_qs(detail.attrs['href'][11:])['dcnum'][0]
+    while inmates:
+        for inmate in inmates:
+            yield inmate
 
-
-with open('data/raw.tsv', 'w') as sink:
-    sink.write('\t'.join(['adc_id', 'name', 'race', 'facility', 'address']))
-    sink.write('\n')
-
-    for dcnum in enumerate_offender_dcnum():
-        time.sleep(1)
-
-        url = detail_url_for(dcnum)
-
+        url = "%s?token=%s&lastname=%s&sex=b&photo=nophoto&disclaimer=1&RUN=%s" % (LIST_URL, token, prefix, run)
         print('<- %s' % url)
+        browser.open(url)
+        time.sleep(5)
+        page = browser.get_current_page()
+        inmates = inmates_for(page)
+        if not [a for a in page.find_all('a') if a.attrs['href'].startswith('search.php') and a.text.startswith('Matches')]:
+            break
+        run += 1
 
-        try:
-            response = requests.get(url)
-        except:
-            response = None
-
-        while not response or response.status_code != 200:
-            print("Server ate shit. Giving it 5 seconds.")
-            time.sleep(5)
-            try:
-                print('<- %s' % url)
-                response = requests.get(url)
-            except:
-                response = None
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        try:
-            details = soup.select('table')[3].select('tr')
-        except:
-            import pdb; pdb.set_trace()
-        _, _, adc_id, *_ = details[0].text.split()
-        _, name = details[1].text.strip().split('\n\n')
-        _, race = details[2].text.split()
-        _, facility = details[10].text.strip().split('\n\n\xa0')
-        _, address = details[12].text.strip().split('\n\n\xa0')
-
-        print((adc_id, name, race, facility, address))
-
-        sink.write('\t'.join([adc_id, name, race, facility, address]))
+for prefix in string.ascii_lowercase:
+    with open('data/%s.tsv' % prefix, 'w') as sink:
+        sink.write('\t'.join(['adc_id', 'name', 'race', 'facility']))
         sink.write('\n')
+
+        for inmate in enumerate_inmates(prefix):
+            print(inmate)
+
+            sink.write('\t'.join([inmate.dcnum, inmate.name, inmate.race, inmate.facility]))
+            sink.write('\n')
 
