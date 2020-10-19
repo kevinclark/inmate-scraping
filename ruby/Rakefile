@@ -1,0 +1,27 @@
+
+namespace :nh do
+  require './nh/download'
+  require 'csv'
+
+  desc 'Populate inmate locator page cache'
+  task :download do
+    Download.retrieve_all
+  end
+
+  desc 'Print TSV'
+  task :tsv do
+    inmates = Download.list_all
+
+    s = CSV.generate(col_sep: "\t") do |csv|
+      column_names = inmates.first.keys
+      csv << column_names
+      inmates.each do |x|
+        csv << x.values
+      end
+    end
+
+    f = File.new('./nh/data/inmates.tsv', 'w+')
+    f << s
+    f.close
+  end
+end
