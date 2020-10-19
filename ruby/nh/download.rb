@@ -1,7 +1,7 @@
 require 'pry'
 require 'http'
 require 'nokogiri'
-require './names'
+require './nh/names'
 require 'time'
 
 # curl 'https://business.nh.gov/Inmate_locator/default.aspx' \
@@ -39,11 +39,21 @@ module Download
     cookie: 'pub=78'
   }
 
+  ADDRESSES = {
+    "NH State Prison for Men" => 'NH State Prison, PO Box 14, Concord, NH 03302',
+    "NH Correctional Facility for Women" => 'NHCFW, 42 Perimeter Road, Concord, NH 03301',
+    "Northern NH Correctional Facility" => 'Northern NH Correctional Facility, 138 East Milan Road, Berlin, NH 03570'
+  }
+
   def self.list_all
-    Dir['data/*.html'].map do |f|
+    Dir['./nh/data/*.html'].map do |f|
       data = Nokogiri.parse(File.open(f, 'r'))
       data.xpath('//tr[@style="background-color:#EBF7FB;"]').map do |r|
         row = Nokogiri.parse(r.to_s).xpath('//span')
+
+        address = ADDRESSES[row[9].content]
+
+        next if address.nil?
 
         if row.size == 9
           {
@@ -53,7 +63,8 @@ module Download
             suffix: nil,
             age: row[3].content.to_i,
             inmate_id: row[4].content,
-            facility: row[9].content
+            facility: row[9].content,
+            address: address
           }
         else
           {
@@ -63,11 +74,12 @@ module Download
             suffix: row[3].content,
             age: row[4].content.to_i,
             inmate_id: row[5].content,
-            facility: row[9].content
+            facility: row[9].content,
+            address: address
           }
         end
       end
-    end.flatten
+    end.flatten.compact
   end
 
   def self.retrieve_all
@@ -75,7 +87,7 @@ module Download
       resp = request(prefix: prefix)
 
       if resp.status == 200
-        file = File.new("data/#{prefix}-#{Time.now.to_i}", "w+")
+        file = File.new("./nh/data/#{prefix}-#{Time.now.to_i}.html", "w+")
         body = resp.body.to_s
         file.puts body
         file.close

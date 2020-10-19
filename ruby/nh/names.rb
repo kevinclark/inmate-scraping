@@ -1,5 +1,5 @@
 module LastName
-  LIST = File.open('data/names.csv', 'r', &:read).split(/\n/)
+  LIST = File.open('./nh/data/names.csv', 'r', &:read).split(/\n/)
 
   def self.prefix(num = 2)
     return LIST if num <= 0
